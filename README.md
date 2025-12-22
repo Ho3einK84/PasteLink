@@ -20,7 +20,7 @@
 ### 1. دانلود
 
 ```bash
-git clone https://github.com/yourusername/pastelink.git
+git clone https://github.com/Ho3einK84/pastelink.git
 cd pastelink
 ```
 
