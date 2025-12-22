@@ -19,10 +19,9 @@
 
 ### 1. دانلود
 
-```bash
-git clone https://github.com/Ho3einK84/pastelink.git
-cd pastelink
-```
+**دانلود ZIP:**
+
+[📥 دانلود PasteLink v2.0](https://github.com/Ho3einK84/PasteLink/archive/refs/tags/v2.0.zip)
 
 ### 2. تنظیمات دیتابیس
 
