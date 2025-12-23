@@ -305,6 +305,8 @@ try {
     <title><?= htmlspecialchars($pageData['title']) ?></title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -436,6 +438,35 @@ try {
         <div class="absolute top-1/4 right-1/4 w-64 h-64 bg-cyan-400/20 dark:bg-cyan-500/15 rounded-full blur-3xl animate-float-medium"></div>
     </div>
 
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4" onclick="closeQRModal(event)">
+        <div class="glass-strong rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center" onclick="event.stopPropagation()">
+            <div class="space-y-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-black text-gray-800 dark:text-white">QR Code</h3>
+                    <button onclick="closeQRModal()" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="flex justify-center">
+                    <div id="qrModalCode" class="p-4 bg-white rounded-xl shadow-inner"></div>
+                </div>
+                
+                <p class="text-sm text-gray-600 dark:text-gray-400 font-semibold">اسکن کنید تا لینک باز شود</p>
+                
+                <button 
+                    onclick="closeQRModal()"
+                    class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all animate-gradient"
+                >
+                    بستن
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="min-h-screen flex items-center justify-center p-4 py-8">
         <div class="w-full max-w-4xl glass-strong rounded-3xl shadow-2xl overflow-hidden">
             
@@ -450,7 +481,7 @@ try {
                         <h1 class="text-2xl sm:text-3xl font-black text-gray-800 dark:text-white truncate">
                             <?= APP_NAME ?>
                         </h1>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">v2.0 - با رمزگذاری پیشرفته</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">v2.1 - با رمزگذاری پیشرفته</p>
                     </div>
                 </div>
                 
@@ -547,8 +578,8 @@ try {
                     </div>
 
                     <div id="resultOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-                        <div class="glass-strong rounded-3xl p-8 max-w-lg w-full shadow-2xl">
-                            <div class="text-center space-y-6">
+                        <div class="glass-strong rounded-3xl p-8 max-w-lg w-full shadow-2xl text-center">
+                            <div class="space-y-6">
                                 <div class="w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-xl animate-gradient">
                                     <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
@@ -559,6 +590,11 @@ try {
                                     <h3 class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white mb-2">🎉 لینک شما آماده است!</h3>
                                     <p class="text-gray-600 dark:text-gray-400 font-semibold">لینک زیر را کپی و به اشتراک بگذارید</p>
                                 </div>
+
+                                <div class="flex justify-center my-4">
+                                    <div id="qrcode" class="p-3 bg-white rounded-xl shadow-inner"></div>
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-2">اسکن کنید تا لینک باز شود</p>
 
                                 <div class="space-y-3">
                                     <input 
@@ -666,6 +702,15 @@ try {
                                         >
                                             <?= htmlspecialchars($pageData['text']['code']) ?>
                                         </a>
+                                        <button 
+                                            onclick="showQRCode('<?= getBaseUrl() ?>/<?= $pageData['text']['code'] ?>')"
+                                            class="p-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-lg hover:shadow-lg transition-all"
+                                            title="نمایش QR Code"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                                            </svg>
+                                        </button>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -732,7 +777,14 @@ try {
                                     ایجاد متن جدید
                                 </a>
                             </div>
+                        
+                    <?php if (!$pageData['text']['is_encrypted']): ?>
                         </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($pageData['text']['is_encrypted']): ?>
+                        </div>
+                    <?php endif; ?>
 
                 <?php else: ?>
                     <div class="text-center py-16 space-y-6">
@@ -789,6 +841,34 @@ try {
             setTimeout(() => {
                 el.innerHTML = orig;
             }, 2000);
+        }
+
+        function showQRCode(url) {
+            const modal = document.getElementById('qrModal');
+            const qrContainer = document.getElementById('qrModalCode');
+            
+            qrContainer.innerHTML = '';
+            
+            new QRCode(qrContainer, {
+                text: url,
+                width: 200,
+                height: 200,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeQRModal(event) {
+            const modal = document.getElementById('qrModal');
+            if (event && event.target !== modal) return;
+            
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('qrModalCode').innerHTML = '';
         }
 
         function updateTheme(isDark) {
@@ -931,6 +1011,20 @@ try {
                 
                 if (data.status === 'success') {
                     document.getElementById('finalLink').value = data.url;
+                    
+                    // Clear previous QR code
+                    document.getElementById('qrcode').innerHTML = "";
+                    
+                    // Generate new QR code
+                    new QRCode(document.getElementById("qrcode"), {
+                        text: data.url,
+                        width: 128,
+                        height: 128,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H
+                    });
+
                     document.getElementById('resultOverlay').classList.remove('hidden');
                     document.getElementById('resultOverlay').classList.add('flex');
                     document.getElementById('pasteContent').value = '';
@@ -968,6 +1062,8 @@ try {
         function resetApp() {
             document.getElementById('resultOverlay').classList.add('hidden');
             document.getElementById('resultOverlay').classList.remove('flex');
+            document.getElementById('qrcode').innerHTML = "";
+            
             const homeTextarea = document.getElementById('pasteContent');
             if (homeTextarea) {
                 homeTextarea.value = '';
@@ -1040,8 +1136,14 @@ try {
             
             if (e.key === 'Escape') {
                 const overlay = document.getElementById('resultOverlay');
+                const modal = document.getElementById('qrModal');
+                
                 if (overlay && overlay.classList.contains('flex')) {
                     resetApp();
+                }
+                
+                if (modal && modal.classList.contains('flex')) {
+                    closeQRModal();
                 }
             }
         });
