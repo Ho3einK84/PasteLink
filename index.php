@@ -266,7 +266,7 @@ if ($isAjax) {
 }
 
 $action = getRoute();
-$pageData = ['type' => 'home', 'title' => APP_NAME . ' v2.0'];
+$pageData = ['type' => 'home', 'title' => APP_NAME . ''];
 
 try {
     if ($action === 'admin') {
@@ -387,12 +387,16 @@ try {
             background: rgba(0, 0, 0, 0.3);
         }
 
-        body {
+        html, body {
             background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        body.dark {
+        html.dark, body.dark {
             background: linear-gradient(135deg, #064e3b 0%, #065f46 25%, #047857 50%, #059669 75%, #0a0f0d 100%);
+            background-attachment: fixed;
         }
         
         .password-input-container {
@@ -405,6 +409,22 @@ try {
             top: 50%;
             transform: translateY(-50%);
             cursor: pointer;
+            user-select: none;
+        }
+
+        @media (max-width: 640px) {
+            html, body {
+                background-attachment: scroll;
+            }
+        }
+
+        textarea {
+            resize: none;
+        }
+
+        input[type="text"], input[type="password"] {
+            -webkit-appearance: none;
+            appearance: none;
         }
     </style>
 </head>
@@ -416,34 +436,34 @@ try {
         <div class="absolute top-1/4 right-1/4 w-64 h-64 bg-cyan-400/20 dark:bg-cyan-500/15 rounded-full blur-3xl animate-float-medium"></div>
     </div>
 
-    <div class="min-h-full flex items-center justify-center p-4">
+    <div class="min-h-screen flex items-center justify-center p-4 py-8">
         <div class="w-full max-w-4xl glass-strong rounded-3xl shadow-2xl overflow-hidden">
             
             <header class="flex items-center justify-between p-6 sm:p-8 border-b border-gray-200/50 dark:border-zinc-700/50">
-                <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-emerald-800 rounded-xl flex items-center justify-center shadow-xl animate-gradient">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-emerald-800 rounded-xl flex items-center justify-center shadow-xl animate-gradient flex-shrink-0">
                         <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
                     </div>
-                    <div>
-                        <h1 class="text-2xl sm:text-3xl font-black text-gray-800 dark:text-white">
+                    <div class="min-w-0">
+                        <h1 class="text-2xl sm:text-3xl font-black text-gray-800 dark:text-white truncate">
                             <?= APP_NAME ?>
                         </h1>
                         <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">v2.0 - با رمزگذاری پیشرفته</p>
                     </div>
                 </div>
                 
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-shrink-0">
                     <?php if ($pageData['type'] !== 'home'): ?>
-                        <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md" title="صفحه اصلی">
+                        <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="صفحه اصلی">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                             </svg>
                         </a>
                     <?php endif; ?>
                     
-                    <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md" title="تغییر تم">
+                    <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="تغییر تم">
                         <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
@@ -458,9 +478,9 @@ try {
                 <?php if ($pageData['type'] === 'home'): ?>
                     <div class="space-y-6">
                         <div class="space-y-2">
-                            <div class="flex items-center justify-between">
+                            <div class="flex items-center justify-between gap-2">
                                 <label class="text-sm font-bold text-gray-700 dark:text-gray-300">✍️ متن خود را بنویسید</label>
-                                <span id="charCounter" class="text-sm text-gray-600 dark:text-gray-400 font-semibold">0 کاراکتر</span>
+                                <span id="charCounter" class="text-sm text-gray-600 dark:text-gray-400 font-semibold whitespace-nowrap">0 کاراکتر</span>
                             </div>
                             <textarea 
                                 id="pasteContent" 
@@ -472,7 +492,7 @@ try {
 
                         <div class="glass rounded-2xl p-4 space-y-3">
                             <div class="flex items-center gap-2">
-                                <input type="checkbox" id="enablePassword" class="w-5 h-5 rounded accent-emerald-600">
+                                <input type="checkbox" id="enablePassword" class="w-5 h-5 rounded accent-emerald-600 cursor-pointer">
                                 <label for="enablePassword" class="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer select-none">
                                     🔐 فعال‌سازی رمز عبور (اختیاری)
                                 </label>
@@ -486,7 +506,7 @@ try {
                                         placeholder="رمز عبور را وارد کنید..."
                                         class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-inner pr-12"
                                     >
-                                    <button type="button" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" onclick="togglePasswordVisibility('textPassword', this)">
+                                    <button type="button" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" onclick="togglePasswordVisibility('textPassword', this)">
                                         <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -496,11 +516,11 @@ try {
                                         </svg>
                                     </button>
                                 </div>
-                                <p class="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <p class="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-start gap-2">
+                                    <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                     </svg>
-                                    توجه: رمز عبور قابل بازیابی نیست. آن را در جای امن ذخیره کنید!
+                                    <span>توجه: رمز عبور قابل بازیابی نیست. آن را در جای امن ذخیره کنید!</span>
                                 </p>
                             </div>
                         </div>
@@ -516,11 +536,11 @@ try {
                             ایجاد لینک اشتراک‌گذاری
                         </button>
 
-                        <div class="glass-strong border-2 border-emerald-300/50 dark:border-emerald-700/50 rounded-2xl p-4 flex items-center gap-3 text-emerald-900 dark:text-emerald-300 shadow-md">
-                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="glass-strong border-2 border-emerald-300/50 dark:border-emerald-700/50 rounded-2xl p-4 flex items-start gap-3 text-emerald-900 dark:text-emerald-300 shadow-md">
+                            <svg class="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                             </svg>
-                            <p class="text-sm sm:text-base font-semibold">
+                            <p class="text-sm font-semibold">
                                 متن شما با امنیت بالا محافظت می‌شود. رمزگذاری سمت مشتری برای حفاظت کامل 🔒
                             </p>
                         </div>
@@ -545,7 +565,7 @@ try {
                                         type="text" 
                                         id="finalLink" 
                                         readonly 
-                                        class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 font-mono text-center font-bold shadow-inner"
+                                        class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 font-mono text-center font-bold shadow-inner text-sm break-all"
                                     >
                                     <button 
                                         onclick="copyLink(event.target)"
@@ -593,7 +613,7 @@ try {
                                         class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-inner pr-12"
                                         onkeypress="if(event.key === 'Enter') decryptContent()"
                                     >
-                                    <button type="button" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" onclick="togglePasswordVisibility('decryptPassword', this)">
+                                    <button type="button" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" onclick="togglePasswordVisibility('decryptPassword', this)">
                                         <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -615,8 +635,8 @@ try {
                                 </button>
                             </div>
 
-                            <div class="glass-strong border-2 border-amber-300/50 dark:border-amber-700/50 rounded-2xl p-4 flex items-center gap-3 text-amber-900 dark:text-amber-300 shadow-md">
-                                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="glass-strong border-2 border-amber-300/50 dark:border-amber-700/50 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-300 shadow-md">
+                                <svg class="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <p class="text-sm font-semibold">
@@ -634,7 +654,7 @@ try {
                         
                             <div class="glass-strong rounded-2xl p-4 space-y-3 shadow-md">
                                 <div class="flex flex-wrap items-center gap-4 text-sm text-gray-700 dark:text-gray-300 font-semibold">
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                                         </svg>
@@ -673,9 +693,14 @@ try {
                             </div>
 
                             <div class="space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <label class="text-sm font-bold text-gray-700 dark:text-gray-300">📄 محتوا</label>
-                                    <span class="text-sm text-gray-600 dark:text-gray-400 font-semibold" id="viewCharCount">
+                                <div class="flex items-center justify-between gap-2">
+                                    <label class="text-sm font-bold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        محتوا
+                                    </label>
+                                    <span class="text-sm text-gray-600 dark:text-gray-400 font-semibold whitespace-nowrap" id="viewCharCount">
                                         <?= number_format(mb_strlen($pageData['text']['content'])) ?> کاراکتر
                                     </span>
                                 </div>
