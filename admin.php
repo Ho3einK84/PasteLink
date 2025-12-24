@@ -120,6 +120,28 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
             exit;
         }
         
+        if ($action === 'search') {
+            $query = trim($input['query'] ?? '');
+            if (strlen($query) < 2) {
+                echo json_encode(['status' => 'error', 'message' => 'حداقل ۲ کاراکتر وارد کنید']);
+                exit;
+            }
+            
+            $stmt = getDB()->prepare("
+                SELECT id, code, content, views, created_at, is_encrypted 
+                FROM texts 
+                WHERE code LIKE ? OR content LIKE ? 
+                ORDER BY created_at DESC 
+                LIMIT 100
+            ");
+            $searchTerm = "%$query%";
+            $stmt->execute([$searchTerm, $searchTerm]);
+            $results = $stmt->fetchAll();
+            
+            echo json_encode(['status' => 'success', 'data' => $results]);
+            exit;
+        }
+        
     } catch (Throwable $e) {
         http_response_code(500);
         echo json_encode(['status' => 'error', 'message' => 'خطای سرور']);
@@ -159,7 +181,7 @@ if (isAdmin()) {
 
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" class="h-full">
+<html lang="fa" dir="rtl" class="h-full scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -193,10 +215,23 @@ if (isAdmin()) {
             50% { background-position: 100% 50%; }
         }
         
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        
         .animate-float-slow { animation: float 30s ease-in-out infinite; }
         .animate-float-medium { animation: float 35s ease-in-out infinite; }
         .animate-float-fast { animation: float 25s ease-in-out infinite; }
         .animate-gradient { animation: gradientShift 8s ease infinite; background-size: 200% 200%; }
+        .animate-slide-in { animation: slideIn 0.4s ease-out; }
+        .animate-pulse-ring { animation: pulse-ring 2s infinite; }
 
         .glass {
             background: rgba(255, 255, 255, 0.7);
@@ -222,16 +257,69 @@ if (isAdmin()) {
             border: 1px solid rgba(63, 63, 70, 0.5);
         }
 
-        body {
+        html, body {
             background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        body.dark {
+        html.dark, body.dark {
             background: linear-gradient(135deg, #064e3b 0%, #065f46 25%, #047857 50%, #059669 75%, #0a0f0d 100%);
+            background-attachment: fixed;
+        }
+
+        @media (max-width: 640px) {
+            html, body {
+                background-attachment: scroll;
+            }
+        }
+
+        textarea {
+            resize: none;
+        }
+
+        input[type="text"], input[type="password"], input[type="search"] {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .password-input-container {
+            position: relative;
+        }
+
+        .toggle-password {
+            user-select: none;
+        }
+
+        .table-row-hover:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .dark .table-row-hover:hover {
+            background-color: rgba(24, 24, 27, 0.4);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(16, 185, 129, 0.5);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(16, 185, 129, 0.7);
         }
     </style>
 </head>
-<body class="h-full font-vazir relative overflow-x-hidden">
+<body class="font-vazir relative">
     <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div class="absolute top-0 left-0 w-96 h-96 bg-emerald-500/30 dark:bg-emerald-400/20 rounded-full blur-3xl animate-float-slow"></div>
         <div class="absolute bottom-0 right-0 w-80 h-80 bg-green-400/30 dark:bg-green-500/20 rounded-full blur-3xl animate-float-medium"></div>
@@ -240,32 +328,32 @@ if (isAdmin()) {
     </div>
 
     <?php if ($pageData['type'] === 'admin_panel'): ?>
-        <div class="min-h-screen">
+        <div class="min-h-screen flex flex-col">
             <header class="glass-strong sticky top-0 z-50 shadow-lg border-b border-gray-200/50 dark:border-zinc-700/50">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-emerald-800 rounded-xl flex items-center justify-center shadow-xl animate-gradient">
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-emerald-800 rounded-xl flex items-center justify-center shadow-xl animate-gradient flex-shrink-0">
                                 <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
                             </div>
-                            <div>
-                                <h1 class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white">
+                            <div class="min-w-0">
+                                <h1 class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white truncate">
                                     <?= APP_NAME ?>
                                 </h1>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">پنل مدیریت v2.0</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">v2.1 - پنل مدیریت</p>
                             </div>
                         </div>
                         
-                        <div class="flex items-center gap-2">
-                            <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md" title="صفحه اصلی">
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="صفحه اصلی">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                                 </svg>
                             </a>
                             
-                            <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md">
+                            <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="تغییر تم">
                                 <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
@@ -276,7 +364,8 @@ if (isAdmin()) {
 
                             <a 
                                 href="<?= getBaseUrl() ?>/admin.php?logout=true" 
-                                class="px-3 py-2 sm:px-4 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-lg hover:shadow-xl hover:from-red-600 hover:to-red-700 transition-all inline-flex items-center gap-2 animate-gradient"
+                                class="px-3 py-2 sm:px-4 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-lg hover:shadow-xl hover:from-red-600 hover:to-red-700 transition-all inline-flex items-center gap-2"
+                                title="خروج"
                             >
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -288,9 +377,9 @@ if (isAdmin()) {
                 </div>
             </header>
 
-            <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1">
+                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1 animate-slide-in">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="text-3xl font-black text-emerald-600 dark:text-emerald-400">
@@ -298,7 +387,7 @@ if (isAdmin()) {
                                 </div>
                                 <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">کل متن‌ها</div>
                             </div>
-                            <div class="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl flex items-center justify-center shadow-lg">
+                            <div class="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
@@ -306,7 +395,7 @@ if (isAdmin()) {
                         </div>
                     </div>
 
-                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1">
+                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1 animate-slide-in" style="animation-delay: 50ms;">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="text-3xl font-black text-green-600 dark:text-green-400">
@@ -314,7 +403,7 @@ if (isAdmin()) {
                                 </div>
                                 <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">کل بازدید</div>
                             </div>
-                            <div class="w-14 h-14 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-2xl flex items-center justify-center shadow-lg">
+                            <div class="w-14 h-14 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -323,7 +412,7 @@ if (isAdmin()) {
                         </div>
                     </div>
 
-                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1">
+                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1 animate-slide-in" style="animation-delay: 100ms;">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="text-3xl font-black text-teal-600 dark:text-teal-400">
@@ -331,7 +420,7 @@ if (isAdmin()) {
                                 </div>
                                 <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">۷ روز اخیر</div>
                             </div>
-                            <div class="w-14 h-14 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl flex items-center justify-center shadow-lg">
+                            <div class="w-14 h-14 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
@@ -339,7 +428,7 @@ if (isAdmin()) {
                         </div>
                     </div>
 
-                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1">
+                    <div class="glass-strong rounded-2xl p-6 hover:shadow-2xl transition-all transform hover:-translate-y-1 animate-slide-in" style="animation-delay: 150ms;">
                         <div class="flex items-center justify-between">
                             <div>
                                 <div class="text-3xl font-black text-amber-600 dark:text-amber-400">
@@ -347,7 +436,7 @@ if (isAdmin()) {
                                 </div>
                                 <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">رمزگذاری شده</div>
                             </div>
-                            <div class="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 rounded-2xl flex items-center justify-center shadow-lg">
+                            <div class="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
@@ -356,24 +445,37 @@ if (isAdmin()) {
                     </div>
                 </div>
 
-                <div class="glass-strong rounded-2xl overflow-hidden shadow-2xl">
+                <div class="glass-strong rounded-2xl overflow-hidden shadow-2xl animate-slide-in" style="animation-delay: 200ms;">
                     <div class="p-4 sm:p-6 border-b border-gray-200/50 dark:border-zinc-700/50">
-                        <h2 class="text-lg sm:text-xl font-black text-gray-800 dark:text-white">لیست متن‌ها</h2>
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <h2 class="text-lg sm:text-xl font-black text-gray-800 dark:text-white">لیست متن‌ها</h2>
+                            <div class="w-full sm:w-64 relative">
+                                <input 
+                                    type="search" 
+                                    id="searchInput" 
+                                    placeholder="جستجو در کد یا محتوا..."
+                                    class="w-full px-4 py-2 pr-10 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-md text-sm"
+                                >
+                                <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="glass">
+                            <thead class="glass sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300">ID</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300">کد</th>
+                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">ID</th>
+                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">کد</th>
                                     <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden sm:table-cell">پیش‌نمایش</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300">بازدید</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden lg:table-cell">تاریخ</th>
-                                    <th class="px-4 py-3 text-center text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300">عملیات</th>
+                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">بازدید</th>
+                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden lg:table-cell whitespace-nowrap">تاریخ</th>
+                                    <th class="px-4 py-3 text-center text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">عملیات</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="tableBody">
                                 <?php if (empty($pageData['texts'])): ?>
                                     <tr>
                                         <td colspan="6" class="p-8 text-center text-gray-500 dark:text-gray-400">
@@ -382,13 +484,13 @@ if (isAdmin()) {
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($pageData['texts'] as $row): ?>
-                                    <tr class="border-t border-gray-200/50 dark:border-zinc-700/50 hover:bg-white/30 dark:hover:bg-zinc-800/30 transition-colors" id="row-<?= $row['id'] ?>">
+                                    <tr class="border-t border-gray-200/50 dark:border-zinc-700/50 table-row-hover transition-colors" id="row-<?= $row['id'] ?>" data-code="<?= htmlspecialchars($row['code']) ?>" data-content="<?= htmlspecialchars(mb_substr($row['content'], 0, 100)) ?>">
                                         <td class="px-4 py-3 text-sm font-bold text-gray-800 dark:text-gray-200"><?= number_format($row['id']) ?></td>
                                         <td class="px-4 py-3">
                                             <a 
                                                 href="<?= getBaseUrl() ?>/<?= htmlspecialchars($row['code']) ?>" 
                                                 target="_blank"
-                                                class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-emerald-700 dark:text-emerald-400 text-xs font-bold hover:bg-white/50 dark:hover:bg-zinc-800/50 transition-all"
+                                                class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-emerald-700 dark:text-emerald-400 text-xs font-bold hover:bg-white/50 dark:hover:bg-zinc-800/50 transition-all hover:shadow-md"
                                             >
                                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -421,13 +523,13 @@ if (isAdmin()) {
                                                 <?= number_format($row['views']) ?>
                                             </span>
                                         </td>
-                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs hidden lg:table-cell" dir="ltr">
+                                        <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs hidden lg:table-cell whitespace-nowrap" dir="ltr">
                                             <?= (new DateTime($row['created_at']))->format('Y/m/d H:i') ?>
                                         </td>
                                         <td class="px-4 py-3 text-center">
                                             <button 
                                                 onclick="deletePost(<?= $row['id'] ?>)"
-                                                class="p-2 glass hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-md"
+                                                class="p-2 glass hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-md hover:shadow-lg"
                                                 title="حذف"
                                             >
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -446,8 +548,8 @@ if (isAdmin()) {
         </div>
 
     <?php else: ?>
-        <div class="min-h-full flex items-center justify-center p-4">
-            <div class="w-full max-w-md glass-strong rounded-3xl shadow-2xl overflow-hidden">
+        <div class="min-h-screen py-8 flex items-center justify-center p-4">
+            <div class="w-full max-w-md glass-strong rounded-3xl shadow-2xl overflow-hidden animate-slide-in">
                 <div class="p-8">
                     <div class="text-center space-y-3 mb-6">
                         <div class="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 dark:from-emerald-600 dark:to-emerald-800 rounded-2xl flex items-center justify-center mx-auto shadow-xl animate-gradient">
@@ -456,26 +558,32 @@ if (isAdmin()) {
                             </svg>
                         </div>
                         <h2 class="text-2xl font-black text-gray-800 dark:text-white">پنل مدیریت</h2>
-                        <p class="text-gray-600 dark:text-gray-400 font-semibold">برای دسترسی وارد شوید</p>
+                        <p class="text-gray-600 dark:text-gray-400 font-semibold">v2.1 - برای دسترسی وارد شوید</p>
                     </div>
 
                     <form onsubmit="handleLogin(event)" class="space-y-4">
                         <input type="hidden" id="adminUser" value="<?= ADMIN_USER ?>">
                         
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">رمز عبور</label>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">🔐 رمز عبور</label>
                             <input 
                                 type="password" 
                                 id="adminPass" 
-                                placeholder="رمز عبور"
-                                class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/50 focus:border-emerald-500 shadow-inner"
+                                placeholder="رمز عبور را وارد کنید"
+                                class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-inner"
                                 required
+                                autocomplete="off"
                             >
                         </div>
-                        <div id="loginError" class="hidden p-3 glass-strong border-2 border-red-300 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm font-bold shadow-md"></div>
+                        <div id="loginError" class="hidden p-3 glass-strong border-2 border-red-300 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm font-bold shadow-md flex items-start gap-2">
+                            <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2m6.364-2.636l-1.414-1.414m2.828-2.828l-1.414-1.414M4.22 4.22l-1.414 1.414m2.828 2.828L4.22 11.66" />
+                            </svg>
+                            <span id="errorText"></span>
+                        </div>
                         <button 
                             type="submit"
-                            class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gradient"
+                            class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <svg class="w-5 h-5 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -490,13 +598,19 @@ if (isAdmin()) {
 
     <script>
         const BASE_URL = <?= json_encode(getBaseUrl()) ?>;
+        let allTexts = <?= json_encode($pageData['texts'] ?? []) ?>;
 
         function notify(msg, type = 'info') {
             const n = document.createElement('div');
-            n.className = `fixed top-4 right-4 z-[9999] p-4 rounded-xl shadow-2xl max-w-sm transition-all duration-300 opacity-0 translate-x-10 ${
+            n.className = `fixed top-4 right-4 z-[9999] p-4 rounded-xl shadow-2xl max-w-sm transition-all duration-300 opacity-0 translate-x-10 flex items-start gap-3 ${
                 type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white border-2 border-emerald-400' : 'bg-gradient-to-r from-red-500 to-red-600 text-white border-2 border-red-400'
             }`;
-            n.innerHTML = `<span class="font-bold">${msg}</span>`;
+            n.innerHTML = `
+                <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${type === 'success' ? 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'}" />
+                </svg>
+                <span class="font-bold">${msg}</span>
+            `;
             document.body.appendChild(n);
             
             setTimeout(() => {
@@ -547,18 +661,113 @@ if (isAdmin()) {
 
         document.getElementById('themeBtn')?.addEventListener('click', toggleTheme);
 
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            let searchTimeout;
+            searchInput.addEventListener('input', async (e) => {
+                const query = e.target.value.trim();
+                clearTimeout(searchTimeout);
+
+                if (!query) {
+                    renderTable(allTexts);
+                    return;
+                }
+
+                if (query.length < 2) return;
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const res = await fetch(BASE_URL + '/admin.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: JSON.stringify({ action: 'search', query })
+                        });
+
+                        const data = await res.json();
+                        if (data.status === 'success') {
+                            renderTable(data.data);
+                        }
+                    } catch (e) {
+                        console.error('Search error:', e);
+                    }
+                }, 300);
+            });
+        }
+
+        function renderTable(rows) {
+            const tbody = document.getElementById('tableBody');
+            if (!tbody) return;
+
+            if (!rows || rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 dark:text-gray-400">متنی یافت نشد</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rows.map(row => `
+                <tr class="border-t border-gray-200/50 dark:border-zinc-700/50 table-row-hover transition-colors" id="row-${row.id}">
+                    <td class="px-4 py-3 text-sm font-bold text-gray-800 dark:text-gray-200">${(row.id).toLocaleString('fa-IR')}</td>
+                    <td class="px-4 py-3">
+                        <a 
+                            href="${BASE_URL}/${row.code}" 
+                            target="_blank"
+                            class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-emerald-700 dark:text-emerald-400 text-xs font-bold hover:bg-white/50 dark:hover:bg-zinc-800/50 transition-all hover:shadow-md"
+                        >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            ${row.code}
+                        </a>
+                        ${row.is_encrypted ? '<span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-amber-700 dark:text-amber-400 text-xs font-bold ml-2"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg> 🔐</span>' : ''}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm max-w-xs truncate hidden sm:table-cell">
+                        ${row.is_encrypted ? '<span class="text-amber-600 dark:text-amber-400 font-bold">محتوای رمزگذاری شده</span>' : (row.content.substring(0, 40) + (row.content.length > 40 ? '...' : ''))}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-green-700 dark:text-green-400 text-xs font-bold">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            ${(row.views).toLocaleString('fa-IR')}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs hidden lg:table-cell whitespace-nowrap" dir="ltr">
+                        ${new Date(row.created_at).toLocaleDateString('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td class="px-4 py-3 text-center">
+                        <button 
+                            onclick="deletePost(${row.id})"
+                            class="p-2 glass hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-md hover:shadow-lg"
+                            title="حذف"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             const user = document.getElementById('adminUser').value;
             const pass = document.getElementById('adminPass').value;
             const errorDiv = document.getElementById('loginError');
+            const errorText = document.getElementById('errorText');
             const btn = e.target.querySelector('button[type="submit"]');
             
             errorDiv.classList.add('hidden');
             btn.disabled = true;
             const orig = btn.innerHTML;
             btn.innerHTML = `
-                <div class="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <svg class="w-5 h-5 inline-block ml-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"></circle>
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
                 <span class="mr-2 font-black">در حال ورود...</span>
             `;
             
@@ -575,15 +784,15 @@ if (isAdmin()) {
                 const data = await res.json();
                 
                 if (data.status === 'success') {
-                    notify('ورود موفق', 'success');
-                    setTimeout(() => window.location.reload(), 500);
+                    notify('ورود موفق - در حال بارگیری...', 'success');
+                    setTimeout(() => window.location.reload(), 600);
                 } else {
-                    errorDiv.textContent = data.message;
+                    errorText.textContent = data.message || 'خطا در ورود';
                     errorDiv.classList.remove('hidden');
                     document.getElementById('adminPass').value = '';
                 }
             } catch (e) {
-                errorDiv.textContent = 'خطا در ارتباط با سرور';
+                errorText.textContent = 'خطا در ارتباط با سرور';
                 errorDiv.classList.remove('hidden');
                 console.error(e);
             } finally {
@@ -596,6 +805,7 @@ if (isAdmin()) {
             if (!confirm('⚠️ آیا مطمئن هستید؟\n\nاین عملیات قابل بازگشت نیست!')) return;
             
             const row = document.getElementById(`row-${id}`);
+            if (!row) return;
             
             try {
                 const res = await fetch(BASE_URL + '/admin.php', {
@@ -611,15 +821,16 @@ if (isAdmin()) {
                 
                 if (data.status === 'success') {
                     row.style.opacity = '0';
-                    row.style.transform = 'translateY(10px)';
+                    row.style.transform = 'translateX(-20px)';
                     row.style.transition = 'all 0.3s ease-in-out';
                     setTimeout(() => row.remove(), 300);
-                    notify('حذف شد', 'success');
+                    notify('متن حذف شد', 'success');
+                    allTexts = allTexts.filter(t => t.id !== id);
                 } else {
-                    notify(data.message || 'خطا در حذف', 'error');
+                    notify(data.message || '❌ خطا در حذف', 'error');
                 }
             } catch (e) {
-                notify('خطا در ارتباط با سرور', 'error');
+                notify('❌ خطا در ارتباط با سرور', 'error');
                 console.error(e);
             }
         }
