@@ -23,7 +23,7 @@
 
 **دانلود ZIP:**
 
-[📥 دانلود PasteLink v2.0](https://github.com/Ho3einK84/PasteLink/archive/refs/tags/v2.0.zip)
+[📥 دانلود PasteLink v2.1](https://github.com/Ho3einK84/PasteLink/archive/refs/tags/v2.1.zip)
 
 ### 2. تنظیمات دیتابیس
 
@@ -154,6 +154,6 @@ MIT License - فایل [LICENSE](LICENSE) را ببینید.
 
 ⭐ اگر مفید بود، یک ستاره بدهید!
 
-**نسخه 2.0** | دسامبر 2025
+**نسخه 2.1** | دسامبر 2025
 
 </div>
