@@ -17,4 +17,12 @@ const APP_NAME = 'PasteLink';
 const APP_URL  = ''; // Leave empty to auto-detect
 const MAX_CONTENT_LENGTH = 100000;
 
+// v3 Configuration
+const CACHE_ENABLED = true;
+const SESSION_TIMEOUT = 3600; // 1 hour
+const SESSION_SECURE = true;
+const CSRF_TOKEN_ENABLED = true;
+const SECURITY_HEADERS = true;
+const MAX_EXPIRY_HOURS = 168; // 7 days
+
 ?>

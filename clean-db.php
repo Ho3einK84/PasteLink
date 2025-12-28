@@ -1,36 +1,32 @@
 <?php
 declare(strict_types=1);
 
-// Load database settings
+// Load dependencies
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/texthandler.php';
+require_once __DIR__ . '/includes/security.php';
+
+Security::init();
 
 try {
-    // Database connection
-    $dsn = sprintf(
-        "mysql:host=%s;dbname=%s;charset=%s",
-        DB_CONFIG['host'],
-        DB_CONFIG['name'],
-        DB_CONFIG['charset']
-    );
-
-    $options = [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ];
-
-    $pdo = new PDO($dsn, DB_CONFIG['user'], DB_CONFIG['pass'], $options);
-
-    // Delete records older than 24 hours
-    $sql = "DELETE FROM texts WHERE created_at < DATE_SUB(NOW(), INTERVAL 24 HOUR)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-
-    // Log the result
-    $deletedRows = $stmt->rowCount();
+    $textHandler = new TextHandler();
+    
+    // Delete expired and exhausted view limit texts
+    $deletedRows = $textHandler->deleteExpiredTexts();
+    
+    // Get statistics
+    $stats = $textHandler->getTextStats();
+    
     $timestamp = date('Y-m-d H:i:s');
-    echo "[$timestamp] Deleted: $deletedRows rows." . PHP_EOL;
+    echo "[$timestamp] === PasteLink v3 Cleanup ===" . PHP_EOL;
+    echo "Deleted expired/exhausted texts: $deletedRows" . PHP_EOL;
+    echo "Total texts: {$stats['total_texts']}" . PHP_EOL;
+    echo "Total views: {$stats['total_views']}" . PHP_EOL;
+    echo "Expiring texts: {$stats['expiring_texts']}" . PHP_EOL;
+    echo "Limited texts: {$stats['limited_texts']}" . PHP_EOL;
+    echo "Cleanup completed successfully." . PHP_EOL;
 
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     error_log("Cleanup Error: " . $e->getMessage());
-    die("Error: Check logs.");
+    die("Error: " . $e->getMessage());
 }

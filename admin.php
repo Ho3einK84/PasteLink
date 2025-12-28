@@ -8,6 +8,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/includes/language.php';
+Language::init();
+
+// Handle language change from URL parameter
+if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'fa'])) {
+    Language::setLanguage($_GET['lang']);
+}
+
 function getDB(): PDO {
     static $pdo = null;
     
@@ -89,14 +97,14 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
                 echo json_encode(['status' => 'success']);
             } else {
                 http_response_code(401);
-                echo json_encode(['status' => 'error', 'message' => 'نام کاربری یا رمز عبور اشتباه است']);
+                echo json_encode(['status' => 'error', 'message' => Language::get('invalid_credentials')]);
             }
             exit;
         }
         
         if (!isAdmin()) {
             http_response_code(401);
-            echo json_encode(['status' => 'error', 'message' => 'دسترسی غیرمجاز']);
+            echo json_encode(['status' => 'error', 'message' => Language::get('unauthorized')]);
             exit;
         }
         
@@ -104,7 +112,7 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
             $id = filter_var($input['id'] ?? 0, FILTER_VALIDATE_INT);
             if ($id === false || $id <= 0) {
                 http_response_code(400);
-                echo json_encode(['status' => 'error', 'message' => 'شناسه نامعتبر']);
+                echo json_encode(['status' => 'error', 'message' => Language::get('invalid_id')]);
                 exit;
             }
             
@@ -115,7 +123,7 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
                 echo json_encode(['status' => 'success']);
             } else {
                 http_response_code(404);
-                echo json_encode(['status' => 'error', 'message' => 'متن یافت نشد']);
+                echo json_encode(['status' => 'error', 'message' => Language::get('text_not_found')]);
             }
             exit;
         }
@@ -123,7 +131,7 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
         if ($action === 'search') {
             $query = trim($input['query'] ?? '');
             if (strlen($query) < 2) {
-                echo json_encode(['status' => 'error', 'message' => 'حداقل ۲ کاراکتر وارد کنید']);
+                echo json_encode(['status' => 'error', 'message' => Language::get('min_search_chars')]);
                 exit;
             }
             
@@ -144,17 +152,17 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
         
     } catch (Throwable $e) {
         http_response_code(500);
-        echo json_encode(['status' => 'error', 'message' => 'خطای سرور']);
+        echo json_encode(['status' => 'error', 'message' => Language::get('server_error')]);
         error_log($e->getMessage());
         exit;
     }
 }
 
-$pageData = ['type' => 'admin_login', 'title' => 'ورود - ' . APP_NAME];
+$pageData = ['type' => 'admin_login', 'title' => Language::get('admin_login') . ' - ' . APP_NAME];
 
 if (isAdmin()) {
     $pageData['type'] = 'admin_panel';
-    $pageData['title'] = 'پنل مدیریت - ' . APP_NAME;
+    $pageData['title'] = Language::get('admin_panel_title') . ' - ' . APP_NAME;
     
     $db = getDB();
     $stmt = $db->query("SELECT id, code, content, views, created_at, is_encrypted FROM texts ORDER BY created_at DESC LIMIT 500");
@@ -181,7 +189,7 @@ if (isAdmin()) {
 
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" class="h-full scroll-smooth">
+<html lang="<?= Language::getCurrentLang() ?>" dir="<?= Language::getDirection() ?>" class="h-full scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -342,18 +350,34 @@ if (isAdmin()) {
                                 <h1 class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white truncate">
                                     <?= APP_NAME ?>
                                 </h1>
-                                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">v2.1 - پنل مدیریت</p>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('admin_version') ?></p>
                             </div>
                         </div>
                         
                         <div class="flex items-center gap-2 flex-shrink-0">
-                            <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="صفحه اصلی">
+                            <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="<?= Language::get('home_page') ?>">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                                 </svg>
                             </a>
+
+                            <div class="relative">
+                                <button id="languageBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="<?= Language::get('language') ?>">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                                    </svg>
+                                </button>
+                                <div id="languageDropdown" class="hidden absolute <?= Language::isRTL() ? 'left-0' : 'right-0' ?> mt-2 w-40 glass-strong rounded-xl shadow-xl z-50 overflow-hidden text-sm">
+                                    <button onclick="setLanguage('fa')" class="w-full px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-800 dark:text-gray-200 transition-all flex items-center gap-2">
+                                        🇮🇷 فارسی
+                                    </button>
+                                    <button onclick="setLanguage('en')" class="w-full px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-800 dark:text-gray-200 transition-all flex items-center gap-2">
+                                        🇬🇧 English
+                                    </button>
+                                </div>
+                            </div>
                             
-                            <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="تغییر تم">
+                            <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="<?= Language::get('toggle_theme') ?>">
                                 <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
@@ -367,10 +391,10 @@ if (isAdmin()) {
                                 class="px-3 py-2 sm:px-4 bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-bold rounded-lg hover:shadow-xl hover:from-red-600 hover:to-red-700 transition-all inline-flex items-center gap-2"
                                 title="خروج"
                             >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                 </svg>
-                                <span class="hidden sm:inline">خروج</span>
+                                <span class="hidden sm:inline"><?= Language::get('logout') ?></span>
                             </a>
                         </div>
                     </div>
@@ -385,7 +409,7 @@ if (isAdmin()) {
                                 <div class="text-3xl font-black text-emerald-600 dark:text-emerald-400">
                                     <?= number_format($pageData['stats']['total_texts']) ?>
                                 </div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">کل متن‌ها</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold"><?= Language::get('total_texts') ?></div>
                             </div>
                             <div class="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -401,7 +425,7 @@ if (isAdmin()) {
                                 <div class="text-3xl font-black text-green-600 dark:text-green-400">
                                     <?= number_format($pageData['stats']['total_views']) ?>
                                 </div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">کل بازدید</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold"><?= Language::get('total_views') ?></div>
                             </div>
                             <div class="w-14 h-14 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -418,7 +442,7 @@ if (isAdmin()) {
                                 <div class="text-3xl font-black text-teal-600 dark:text-teal-400">
                                     <?= number_format($pageData['stats']['recent_count']) ?>
                                 </div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">۷ روز اخیر</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold"><?= Language::get('last_7_days') ?></div>
                             </div>
                             <div class="w-14 h-14 bg-gradient-to-br from-teal-100 to-teal-200 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,7 +458,7 @@ if (isAdmin()) {
                                 <div class="text-3xl font-black text-amber-600 dark:text-amber-400">
                                     <?= number_format($pageData['stats']['encrypted_count']) ?>
                                 </div>
-                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold">رمزگذاری شده</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400 mt-1 font-bold"><?= Language::get('encrypted_texts') ?></div>
                             </div>
                             <div class="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
                                 <svg class="w-7 h-7 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,12 +472,12 @@ if (isAdmin()) {
                 <div class="glass-strong rounded-2xl overflow-hidden shadow-2xl animate-slide-in" style="animation-delay: 200ms;">
                     <div class="p-4 sm:p-6 border-b border-gray-200/50 dark:border-zinc-700/50">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                            <h2 class="text-lg sm:text-xl font-black text-gray-800 dark:text-white">لیست متن‌ها</h2>
+                            <h2 class="text-lg sm:text-xl font-black text-gray-800 dark:text-white"><?= Language::get('texts_list') ?></h2>
                             <div class="w-full sm:w-64 relative">
                                 <input 
                                     type="search" 
                                     id="searchInput" 
-                                    placeholder="جستجو در کد یا محتوا..."
+                                    placeholder="<?= Language::get('search_placeholder') ?>"
                                     class="w-full px-4 py-2 pr-10 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-md text-sm"
                                 >
                                 <svg class="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -467,19 +491,19 @@ if (isAdmin()) {
                         <table class="w-full">
                             <thead class="glass sticky top-0 z-10">
                                 <tr>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">ID</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">کد</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden sm:table-cell">پیش‌نمایش</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">بازدید</th>
-                                    <th class="px-4 py-3 text-right text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden lg:table-cell whitespace-nowrap">تاریخ</th>
-                                    <th class="px-4 py-3 text-center text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">عملیات</th>
+                                    <th class="px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap"><?= Language::get('id') ?></th>
+                                    <th class="px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap"><?= Language::get('code') ?></th>
+                                    <th class="px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden sm:table-cell"><?= Language::get('preview') ?></th>
+                                    <th class="px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap"><?= Language::get('views') ?></th>
+                                    <th class="px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 hidden lg:table-cell whitespace-nowrap"><?= Language::get('date') ?></th>
+                                    <th class="px-4 py-3 text-center text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap"><?= Language::get('actions') ?></th>
                                 </tr>
                             </thead>
                             <tbody id="tableBody">
                                 <?php if (empty($pageData['texts'])): ?>
                                     <tr>
                                         <td colspan="6" class="p-8 text-center text-gray-500 dark:text-gray-400">
-                                            هنوز متنی ثبت نشده
+                                            <?= Language::get('no_texts_yet') ?>
                                         </td>
                                     </tr>
                                 <?php else: ?>
@@ -508,7 +532,7 @@ if (isAdmin()) {
                                         </td>
                                         <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm max-w-xs truncate hidden sm:table-cell">
                                             <?php if ($row['is_encrypted']): ?>
-                                                <span class="text-amber-600 dark:text-amber-400 font-bold">محتوای رمزگذاری شده</span>
+                                                <span class="text-amber-600 dark:text-amber-400 font-bold"><?= Language::get('encrypted_content_preview') ?></span>
                                             <?php else: ?>
                                                 <?= htmlspecialchars(mb_substr($row['content'], 0, 40)) ?>
                                                 <?= mb_strlen($row['content']) > 40 ? '...' : '' ?>
@@ -557,19 +581,19 @@ if (isAdmin()) {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                             </svg>
                         </div>
-                        <h2 class="text-2xl font-black text-gray-800 dark:text-white">پنل مدیریت</h2>
-                        <p class="text-gray-600 dark:text-gray-400 font-semibold">v2.1 - برای دسترسی وارد شوید</p>
+                        <h2 class="text-2xl font-black text-gray-800 dark:text-white"><?= Language::get('admin_panel_title') ?></h2>
+                        <p class="text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('admin_version') ?> - <?= Language::get('access_denied') ?></p>
                     </div>
 
                     <form onsubmit="handleLogin(event)" class="space-y-4">
                         <input type="hidden" id="adminUser" value="<?= ADMIN_USER ?>">
                         
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">🔐 رمز عبور</label>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">🔐 <?= Language::get('password') ?></label>
                             <input 
                                 type="password" 
                                 id="adminPass" 
-                                placeholder="رمز عبور را وارد کنید"
+                                placeholder="<?= Language::get('password_placeholder') ?>"
                                 class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-inner"
                                 required
                                 autocomplete="off"
@@ -585,10 +609,10 @@ if (isAdmin()) {
                             type="submit"
                             class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <svg class="w-5 h-5 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'ml-2' : 'mr-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                             </svg>
-                            ورود
+                            <?= Language::get('login') ?>
                         </button>
                     </form>
                 </div>
@@ -661,6 +685,23 @@ if (isAdmin()) {
 
         document.getElementById('themeBtn')?.addEventListener('click', toggleTheme);
 
+        // Language Dropdown
+        const langBtn = document.getElementById('languageBtn');
+        const langDropdown = document.getElementById('languageDropdown');
+        if (langBtn && langDropdown) {
+            langBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                langDropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', () => langDropdown.classList.add('hidden'));
+        }
+
+        function setLanguage(lang) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('lang', lang);
+            window.location.href = url.toString();
+        }
+
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             let searchTimeout;
@@ -702,13 +743,15 @@ if (isAdmin()) {
             if (!tbody) return;
 
             if (!rows || rows.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 dark:text-gray-400">متنی یافت نشد</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500 dark:text-gray-400">${<?= json_encode(Language::get('no_texts_found')) ?>}</td></tr>`;
                 return;
             }
 
+            const currentLang = <?= json_encode(Language::getCurrentLang()) ?>;
+
             tbody.innerHTML = rows.map(row => `
                 <tr class="border-t border-gray-200/50 dark:border-zinc-700/50 table-row-hover transition-colors" id="row-${row.id}">
-                    <td class="px-4 py-3 text-sm font-bold text-gray-800 dark:text-gray-200">${(row.id).toLocaleString('fa-IR')}</td>
+                    <td class="px-4 py-3 text-sm font-bold text-gray-800 dark:text-gray-200">${(row.id).toLocaleString(currentLang === 'fa' ? 'fa-IR' : 'en-US')}</td>
                     <td class="px-4 py-3">
                         <a 
                             href="${BASE_URL}/${row.code}" 
@@ -720,10 +763,10 @@ if (isAdmin()) {
                             </svg>
                             ${row.code}
                         </a>
-                        ${row.is_encrypted ? '<span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-amber-700 dark:text-amber-400 text-xs font-bold ml-2"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg> 🔐</span>' : ''}
+                        ${row.is_encrypted ? `<span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-amber-700 dark:text-amber-400 text-xs font-bold ${currentLang === 'fa' ? 'ml-2' : 'mr-2'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg> 🔐</span>` : ''}
                     </td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm max-w-xs truncate hidden sm:table-cell">
-                        ${row.is_encrypted ? '<span class="text-amber-600 dark:text-amber-400 font-bold">محتوای رمزگذاری شده</span>' : (row.content.substring(0, 40) + (row.content.length > 40 ? '...' : ''))}
+                        ${row.is_encrypted ? `<span class="text-amber-600 dark:text-amber-400 font-bold">${<?= json_encode(Language::get('encrypted_content_preview')) ?>}</span>` : (row.content.substring(0, 40) + (row.content.length > 40 ? '...' : ''))}
                     </td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-green-700 dark:text-green-400 text-xs font-bold">
@@ -731,17 +774,17 @@ if (isAdmin()) {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            ${(row.views).toLocaleString('fa-IR')}
+                            ${(row.views).toLocaleString(currentLang === 'fa' ? 'fa-IR' : 'en-US')}
                         </span>
                     </td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs hidden lg:table-cell whitespace-nowrap" dir="ltr">
-                        ${new Date(row.created_at).toLocaleDateString('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        ${new Date(row.created_at).toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td class="px-4 py-3 text-center">
                         <button 
                             onclick="deletePost(${row.id})"
                             class="p-2 glass hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-all shadow-md hover:shadow-lg"
-                            title="حذف"
+                            title="${<?= json_encode(Language::get('delete')) ?>}"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -764,11 +807,11 @@ if (isAdmin()) {
             btn.disabled = true;
             const orig = btn.innerHTML;
             btn.innerHTML = `
-                <svg class="w-5 h-5 inline-block ml-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'ml-2' : 'mr-2' ?> animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" fill="none"></circle>
                     <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span class="mr-2 font-black">در حال ورود...</span>
+                <span class="<?= Language::isRTL() ? 'mr-2' : 'ml-2' ?> font-black">${<?= json_encode(Language::get('logging_in')) ?>}</span>
             `;
             
             try {
@@ -784,15 +827,15 @@ if (isAdmin()) {
                 const data = await res.json();
                 
                 if (data.status === 'success') {
-                    notify('ورود موفق - در حال بارگیری...', 'success');
+                    notify(<?= json_encode(Language::get('login_success')) ?>, 'success');
                     setTimeout(() => window.location.reload(), 600);
                 } else {
-                    errorText.textContent = data.message || 'خطا در ورود';
+                    errorText.textContent = data.message || <?= json_encode(Language::get('login_error')) ?>;
                     errorDiv.classList.remove('hidden');
                     document.getElementById('adminPass').value = '';
                 }
             } catch (e) {
-                errorText.textContent = 'خطا در ارتباط با سرور';
+                errorText.textContent = <?= json_encode(Language::get('server_connection_error')) ?>;
                 errorDiv.classList.remove('hidden');
                 console.error(e);
             } finally {
@@ -802,7 +845,7 @@ if (isAdmin()) {
         }
 
         async function deletePost(id) {
-            if (!confirm('⚠️ آیا مطمئن هستید؟\n\nاین عملیات قابل بازگشت نیست!')) return;
+            if (!confirm(<?= json_encode(Language::get('delete_confirm')) ?>)) return;
             
             const row = document.getElementById(`row-${id}`);
             if (!row) return;
@@ -824,13 +867,13 @@ if (isAdmin()) {
                     row.style.transform = 'translateX(-20px)';
                     row.style.transition = 'all 0.3s ease-in-out';
                     setTimeout(() => row.remove(), 300);
-                    notify('متن حذف شد', 'success');
+                    notify(<?= json_encode(Language::get('text_deleted')) ?>, 'success');
                     allTexts = allTexts.filter(t => t.id !== id);
                 } else {
-                    notify(data.message || '❌ خطا در حذف', 'error');
+                    notify(data.message || <?= json_encode(Language::get('delete_error')) ?>, 'error');
                 }
             } catch (e) {
-                notify('❌ خطا در ارتباط با سرور', 'error');
+                notify(<?= json_encode(Language::get('server_connection_error')) ?>, 'error');
                 console.error(e);
             }
         }
