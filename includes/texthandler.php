@@ -5,102 +5,39 @@ class TextHandler {
     private PDO $db;
     
     public function __construct() {
-        $this->db = $this->getDB();
-    }
-    
-    private function getDB(): PDO {
-        static $pdo = null;
-        
-        if ($pdo === null) {
-            $dsn = sprintf(
-                "mysql:host=%s;dbname=%s;charset=%s",
-                DB_CONFIG['host'],
-                DB_CONFIG['name'],
-                DB_CONFIG['charset']
-            );
-            
-            $options = [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ];
-            
-            try {
-                $pdo = new PDO($dsn, DB_CONFIG['user'], DB_CONFIG['pass'], $options);
-            } catch (PDOException $e) {
-                if (strpos($e->getMessage(), 'Unknown database') !== false) {
-                    try {
-                        $tempDsn = sprintf("mysql:host=%s;charset=%s", DB_CONFIG['host'], DB_CONFIG['charset']);
-                        $tempPdo = new PDO($tempDsn, DB_CONFIG['user'], DB_CONFIG['pass'], $options);
-
-                        $tempPdo->exec(
-                            "CREATE DATABASE IF NOT EXISTS `" . DB_CONFIG['name'] . "` 
-                            CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-                        );
-                        $tempPdo = null;
-
-                        $pdo = new PDO($dsn, DB_CONFIG['user'], DB_CONFIG['pass'], $options);
-
-                        $pdo->exec("
-                            CREATE TABLE IF NOT EXISTS texts (
-                                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                                code VARCHAR(10) UNIQUE NOT NULL,
-                                content LONGTEXT NOT NULL,
-                                views INT UNSIGNED DEFAULT 0,
-                                view_limit INT UNSIGNED DEFAULT NULL,
-                                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                expires_at DATETIME DEFAULT NULL,
-                                ip_address VARCHAR(45),
-                                is_encrypted TINYINT(1) DEFAULT 0,
-                                INDEX idx_code (code),
-                                INDEX idx_created_at (created_at),
-                                INDEX idx_expires_at (expires_at),
-                                INDEX idx_view_limit (view_limit)
-                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-                        ");
-                    } catch (Throwable $ex) {
-                        throw new Exception("Database setup failed: " . $ex->getMessage(), 0, $ex);
-                    }
-                } else {
-                    throw $e;
-                }
-            }
-        }
-        return $pdo;
+        require_once __DIR__ . '/database.php';
+        $this->db = Database::getInstance();
     }
     
     public function createText(string $content, ?int $expiryHours = null, ?int $viewLimit = null, bool $isEncrypted = false, string $ip = ''): array {
-        $cacheKey = 'text_' . md5($content . $expiryHours . $viewLimit);
+        // Don't cache create operations - each text needs unique code
+        $code = $this->generateUniqueCode();
         
-        return Cache::remember($cacheKey, function() use ($content, $expiryHours, $viewLimit, $isEncrypted, $ip) {
-            $code = $this->generateUniqueCode();
-            
-            $expiresAt = null;
-            if ($expiryHours !== null && $expiryHours > 0) {
-                $expiresAt = date('Y-m-d H:i:s', time() + ($expiryHours * 3600));
-            }
-            
-            $stmt = $this->db->prepare("
-                INSERT INTO texts (code, content, ip_address, is_encrypted, expires_at, view_limit) 
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $code,
-                $content,
-                $ip,
-                $isEncrypted ? 1 : 0,
-                $expiresAt,
-                $viewLimit
-            ]);
-            
-            return [
-                'id' => $this->db->lastInsertId(),
-                'code' => $code,
-                'expires_at' => $expiresAt,
-                'view_limit' => $viewLimit
-            ];
-        }, 300);
+        $expiresAt = null;
+        if ($expiryHours !== null && $expiryHours > 0) {
+            $expiresAt = date('Y-m-d H:i:s', time() + ($expiryHours * 3600));
+        }
+        
+        $stmt = $this->db->prepare("
+            INSERT INTO texts (code, content, ip_address, is_encrypted, expires_at, view_limit) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $code,
+            $content,
+            $ip,
+            $isEncrypted ? 1 : 0,
+            $expiresAt,
+            $viewLimit
+        ]);
+        
+        return [
+            'id' => (int)$this->db->lastInsertId(),
+            'code' => $code,
+            'expires_at' => $expiresAt,
+            'view_limit' => $viewLimit
+        ];
     }
     
     public function getText(string $code): ?array {
@@ -156,6 +93,15 @@ class TextHandler {
     }
     
     public function deleteExpiredTexts(): int {
+        // Get codes before deletion for cache invalidation
+        $stmt = $this->db->prepare("
+            SELECT code FROM texts 
+            WHERE (expires_at IS NOT NULL AND expires_at <= NOW())
+            OR (view_limit IS NOT NULL AND views >= view_limit)
+        ");
+        $stmt->execute();
+        $codes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
         $stmt = $this->db->prepare("
             DELETE FROM texts 
             WHERE (expires_at IS NOT NULL AND expires_at <= NOW())
@@ -165,19 +111,26 @@ class TextHandler {
         $stmt->execute();
         $deleted = $stmt->rowCount();
         
-        if ($deleted > 0) {
-            Cache::clear();
+        // Invalidate cache for deleted texts only
+        foreach ($codes as $code) {
+            Cache::delete('text_code_' . $code);
         }
         
         return $deleted;
     }
     
     public function deleteText(int $id): bool {
+        // Get code before deletion for cache invalidation
+        $stmt = $this->db->prepare("SELECT code FROM texts WHERE id = ?");
+        $stmt->execute([$id]);
+        $text = $stmt->fetch();
+        
         $stmt = $this->db->prepare("DELETE FROM texts WHERE id = ?");
         $result = $stmt->execute([$id]);
         
-        if ($result) {
-            Cache::clear();
+        if ($result && $text) {
+            // Invalidate only the specific cache entry
+            Cache::delete('text_code_' . $text['code']);
         }
         
         return $result;

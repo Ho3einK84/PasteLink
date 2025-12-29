@@ -9,7 +9,9 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/includes/language.php';
+require_once __DIR__ . '/includes/security.php';
 Language::init();
+Security::init();
 
 // Handle language change from URL parameter
 if (isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'fa'])) {
@@ -81,7 +83,11 @@ if (isset($_GET['logout'])) {
 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
     header('Content-Type: application/json');
     
-    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $rawInput = file_get_contents('php://input');
+    $input = json_decode($rawInput, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($input)) {
+        $input = [];
+    }
     $action = $input['action'] ?? '';
     
     try {
@@ -109,6 +115,13 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
         }
         
         if ($action === 'delete') {
+            require_once __DIR__ . '/includes/security.php';
+            if (!Security::isValidCSRFToken()) {
+                http_response_code(403);
+                echo json_encode(['status' => 'error', 'message' => Language::get('csrf_token_invalid')]);
+                exit;
+            }
+            
             $id = filter_var($input['id'] ?? 0, FILTER_VALIDATE_INT);
             if ($id === false || $id <= 0) {
                 http_response_code(400);
@@ -129,6 +142,12 @@ if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQ
         }
         
         if ($action === 'search') {
+            require_once __DIR__ . '/includes/security.php';
+            if (!Security::isValidCSRFToken()) {
+                http_response_code(403);
+                echo json_encode(['status' => 'error', 'message' => Language::get('csrf_token_invalid')]);
+                exit;
+            }
             $query = trim($input['query'] ?? '');
             if (strlen($query) < 2) {
                 echo json_encode(['status' => 'error', 'message' => Language::get('min_search_chars')]);
@@ -622,6 +641,7 @@ if (isAdmin()) {
 
     <script>
         const BASE_URL = <?= json_encode(getBaseUrl()) ?>;
+        const CSRF_TOKEN = <?= json_encode(Security::generateCSRFToken()) ?>;
         let allTexts = <?= json_encode($pageData['texts'] ?? []) ?>;
 
         function notify(msg, type = 'info') {
@@ -696,6 +716,12 @@ if (isAdmin()) {
             document.addEventListener('click', () => langDropdown.classList.add('hidden'));
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function setLanguage(lang) {
             const url = new URL(window.location.href);
             url.searchParams.set('lang', lang);
@@ -722,7 +748,8 @@ if (isAdmin()) {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest'
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRF-Token': CSRF_TOKEN
                             },
                             body: JSON.stringify({ action: 'search', query })
                         });
@@ -766,7 +793,7 @@ if (isAdmin()) {
                         ${row.is_encrypted ? `<span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-amber-700 dark:text-amber-400 text-xs font-bold ${currentLang === 'fa' ? 'ml-2' : 'mr-2'}"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg> 🔐</span>` : ''}
                     </td>
                     <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm max-w-xs truncate hidden sm:table-cell">
-                        ${row.is_encrypted ? `<span class="text-amber-600 dark:text-amber-400 font-bold">${<?= json_encode(Language::get('encrypted_content_preview')) ?>}</span>` : (row.content.substring(0, 40) + (row.content.length > 40 ? '...' : ''))}
+                        ${row.is_encrypted ? `<span class="text-amber-600 dark:text-amber-400 font-bold">${<?= json_encode(Language::get('encrypted_content_preview')) ?>}</span>` : escapeHtml(row.content.substring(0, 40) + (row.content.length > 40 ? '...' : ''))}
                     </td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center gap-1 px-2 py-1 glass rounded-lg text-green-700 dark:text-green-400 text-xs font-bold">
@@ -855,7 +882,8 @@ if (isAdmin()) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': CSRF_TOKEN
                     },
                     body: JSON.stringify({ action: 'delete', id }) 
                 });

@@ -188,7 +188,11 @@ if (!rate_limit($route, $ip, 100, 60)) {
             exit;
         }
         
-        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+        $rawInput = file_get_contents('php://input');
+        $input = json_decode($rawInput, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($input)) {
+            $input = [];
+        }
         
         switch ($route) {
 case 'api-create':
@@ -237,7 +241,8 @@ case 'api-create':
                     'url' => getBaseUrl() . '/' . $result['code'],
                     'code' => $result['code'],
                     'expires_at' => $result['expires_at'],
-                    'view_limit' => $result['view_limit']
+                    'view_limit' => $result['view_limit'],
+                    'is_encrypted' => $isEncrypted
                 ]);
                 exit;
                 
@@ -426,6 +431,68 @@ try {
         html.dark, body.dark {
             background: linear-gradient(135deg, #064e3b 0%, #065f46 25%, #047857 50%, #059669 75%, #0a0f0d 100%);
             background-attachment: fixed;
+            color-scheme: dark;
+        }
+        
+        /* Improved focus styles for accessibility */
+        *:focus-visible {
+            outline: 2px solid #10b981;
+            outline-offset: 2px;
+        }
+        
+        .dark *:focus-visible {
+            outline-color: #34d399;
+        }
+        
+        /* Skip to main content link for screen readers */
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 0;
+            background: #10b981;
+            color: white;
+            padding: 8px;
+            text-decoration: none;
+            z-index: 100;
+        }
+        
+        .skip-link:focus {
+            top: 0;
+        }
+        
+        /* Improved RTL support */
+        [dir="rtl"] .toggle-password {
+            right: 12px;
+            left: auto;
+        }
+        
+        [dir="ltr"] .toggle-password {
+            left: 12px;
+            right: auto;
+        }
+        
+        /* Better contrast for dark mode */
+        .dark .glass {
+            background: rgba(24, 24, 27, 0.8);
+            border: 1px solid rgba(63, 63, 70, 0.4);
+        }
+        
+        .dark .glass-strong {
+            background: rgba(24, 24, 27, 0.9);
+            border: 1px solid rgba(63, 63, 70, 0.5);
+        }
+        
+        /* Screen reader only class */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
         }
         
         .password-input-container {
@@ -458,6 +525,7 @@ try {
     </style>
 </head>
 <body class="h-full font-vazir relative overflow-x-hidden">
+    <a href="#main-content" class="skip-link"><?= Language::get('skip_to_main') ?: 'Skip to main content' ?></a>
     <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div class="absolute top-0 left-0 w-96 h-96 bg-emerald-500/30 dark:bg-emerald-400/20 rounded-full blur-3xl animate-float-slow"></div>
         <div class="absolute bottom-0 right-0 w-80 h-80 bg-green-400/30 dark:bg-green-500/20 rounded-full blur-3xl animate-float-medium"></div>
@@ -466,27 +534,27 @@ try {
     </div>
 
     <!-- QR Code Modal -->
-    <div id="qrModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4" onclick="closeQRModal(event)">
+    <div id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle" aria-describedby="qrModalDescription" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4" onclick="closeQRModal(event)">
         <div class="glass-strong rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center" onclick="event.stopPropagation()">
             <div class="space-y-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-xl font-black text-gray-800 dark:text-white">QR Code</h3>
-                    <button onclick="closeQRModal()" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <h3 id="qrModalTitle" class="text-xl font-black text-gray-800 dark:text-white">QR Code</h3>
+                    <button onclick="closeQRModal()" aria-label="<?= Language::get('close') ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
                 
                 <div class="flex justify-center">
-                    <div id="qrModalCode" class="p-4 bg-white rounded-xl shadow-inner"></div>
+                    <div id="qrModalCode" class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-inner" role="img" aria-label="<?= Language::get('scan_qr') ?>"></div>
                 </div>
                 
-                <p class="text-sm text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('scan_qr') ?></p>
+                <p id="qrModalDescription" class="text-sm text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('scan_qr') ?></p>
                 
                 <button 
                     onclick="closeQRModal()"
-                    class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all animate-gradient"
+                    class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all animate-gradient focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                 >
                     <?= Language::get('close') ?>
                 </button>
@@ -514,54 +582,58 @@ try {
                 
                 <div class="flex items-center gap-2 flex-shrink-0">
                     <?php if ($pageData['type'] !== 'home'): ?>
-                        <a href="<?= getBaseUrl() ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="<?= Language::get('home_page') ?>">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <a href="<?= getBaseUrl() ?>" aria-label="<?= Language::get('home_page') ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                             </svg>
                         </a>
                     <?php endif; ?>
                     
                     <div class="relative">
-                        <button id="languageBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="<?= Language::get('language') ?>">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <button id="languageBtn" aria-label="<?= Language::get('language') ?>" aria-expanded="false" aria-haspopup="true" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
                             </svg>
                         </button>
-                        <div id="languageDropdown" class="hidden absolute <?= Language::isRTL() ? 'left-0' : 'right-0' ?> mt-2 w-40 glass-strong rounded-xl shadow-xl z-50 overflow-hidden">
-                            <button onclick="setLanguage('fa')" class="w-full px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-800 dark:text-gray-200 transition-all flex items-center gap-2">
+                        <div id="languageDropdown" role="menu" aria-labelledby="languageBtn" class="hidden absolute <?= Language::isRTL() ? 'left-0' : 'right-0' ?> mt-2 w-40 glass-strong rounded-xl shadow-xl z-50 overflow-hidden">
+                            <button onclick="setLanguage('fa')" role="menuitem" class="w-full px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-800 dark:text-gray-200 transition-all flex items-center gap-2 focus:outline-none focus:bg-white/50 dark:focus:bg-zinc-800/50">
                                 🇮🇷 فارسی
                             </button>
-                            <button onclick="setLanguage('en')" class="w-full px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-800 dark:text-gray-200 transition-all flex items-center gap-2">
+                            <button onclick="setLanguage('en')" role="menuitem" class="w-full px-4 py-3 <?= Language::isRTL() ? 'text-right' : 'text-left' ?> hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-800 dark:text-gray-200 transition-all flex items-center gap-2 focus:outline-none focus:bg-white/50 dark:focus:bg-zinc-800/50">
                                 🇬🇧 English
                             </button>
                         </div>
                     </div>
                      
-                    <button id="themeBtn" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg" title="<?= Language::get('toggle_theme') ?>">
-                        <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button id="themeBtn" aria-label="<?= Language::get('toggle_theme') ?>" class="p-2 rounded-lg glass hover:bg-white/50 dark:hover:bg-zinc-800/50 text-gray-700 dark:text-gray-300 transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <svg id="sunIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
-                        <svg id="moonIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg id="moonIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                         </svg>
                     </button>
                 </div>
             </header>
 
-            <main class="p-6 sm:p-8">
+            <main id="main-content" class="p-6 sm:p-8" role="main">
                 <?php if ($pageData['type'] === 'home'): ?>
                     <div class="space-y-6">
                         <div class="space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <label class="text-sm font-bold text-gray-700 dark:text-gray-300"><?= Language::get('write_text') ?></label>
-                                <span id="charCounter" class="text-sm text-gray-600 dark:text-gray-400 font-semibold whitespace-nowrap">0 <?= Language::get('characters') ?></span>
+                                <label for="pasteContent" class="text-sm font-bold text-gray-700 dark:text-gray-300"><?= Language::get('write_text') ?></label>
+                                <span id="charCounter" class="text-sm text-gray-600 dark:text-gray-400 font-semibold whitespace-nowrap" aria-live="polite" aria-atomic="true">0 <?= Language::get('characters') ?></span>
                             </div>
                             <textarea 
                                 id="pasteContent" 
+                                name="pasteContent"
+                                aria-label="<?= Language::get('write_text') ?>"
+                                aria-describedby="charCounter maxCharInfo"
                                 placeholder="<?= Language::get('text_placeholder') ?>"
                                 class="w-full min-h-[400px] max-h-[600px] overflow-y-auto p-4 sm:p-6 glass rounded-2xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all duration-300 shadow-inner"
+                                dir="auto"
                             ></textarea>
-                            <span class="text-xs text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('max_characters', ['max' => number_format(MAX_CONTENT_LENGTH)]) ?></span>
+                            <span id="maxCharInfo" class="text-xs text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('max_characters', ['max' => number_format(MAX_CONTENT_LENGTH)]) ?></span>
                         </div>
 
                         <div class="glass rounded-2xl p-4 space-y-3">
@@ -577,15 +649,18 @@ try {
                                     <input 
                                         type="password" 
                                         id="textPassword" 
+                                        name="textPassword"
+                                        aria-label="<?= Language::get('password_placeholder') ?>"
                                         placeholder="<?= Language::get('password_placeholder') ?>"
+                                        autocomplete="new-password"
                                         class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-inner <?= Language::isRTL() ? 'pl-12' : 'pr-12' ?>"
                                     >
-                                    <button type="button" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" onclick="togglePasswordVisibility('textPassword', this)">
-                                        <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <button type="button" aria-label="<?= Language::get('toggle_password_visibility') ?: 'Toggle password visibility' ?>" aria-pressed="false" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded" onclick="togglePasswordVisibility('textPassword', this)">
+                                        <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
-                                        <svg class="w-5 h-5 eye-closed hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 eye-closed hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                         </svg>
                                     </button>
@@ -660,10 +735,12 @@ try {
 
                         <button
                             id="saveBtn" 
+                            type="button"
                             onclick="savePaste()"
-                            class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-2xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg animate-gradient"
+                            aria-label="<?= Language::get('create_share_link') ?>"
+                            class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-2xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg animate-gradient focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                         >
-                            <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                             </svg>
                             <?= Language::get('create_share_link') ?>
@@ -679,37 +756,42 @@ try {
                         </div>
                     </div>
 
-                    <div id="resultOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+                    <div id="resultOverlay" role="dialog" aria-modal="true" aria-labelledby="resultModalTitle" aria-describedby="resultModalDescription" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
                         <div class="glass-strong rounded-3xl p-8 max-w-lg w-full shadow-2xl text-center">
                             <div class="space-y-6">
-                                <div class="w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-xl animate-gradient">
-                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="w-20 h-20 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-xl animate-gradient" role="img" aria-label="<?= Language::get('success') ?>">
+                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
                                     </svg>
                                 </div>
                                 
                                 <div>
-                                    <h3 class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white mb-2"><?= Language::get('link_ready') ?></h3>
-                                    <p class="text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('copy_share') ?></p>
+                                    <h3 id="resultModalTitle" class="text-xl sm:text-2xl font-black text-gray-800 dark:text-white mb-2"><?= Language::get('link_ready') ?></h3>
+                                    <p id="resultModalDescription" class="text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('copy_share') ?></p>
                                 </div>
 
                                 <div class="flex justify-center my-4">
-                                    <div id="qrcode" class="p-3 bg-white rounded-xl shadow-inner"></div>
+                                    <div id="qrcode" class="p-3 bg-white dark:bg-gray-800 rounded-xl shadow-inner" role="img" aria-label="<?= Language::get('scan_qr') ?>"></div>
                                 </div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold mb-2"><?= Language::get('scan_qr') ?></p>
 
                                 <div class="space-y-3">
+                                    <label for="finalLink" class="sr-only"><?= Language::get('copy_share') ?></label>
                                     <input 
                                         type="text" 
                                         id="finalLink" 
+                                        name="finalLink"
                                         readonly 
-                                        class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 font-mono text-center font-bold shadow-inner text-sm break-all"
+                                        aria-label="<?= Language::get('link_ready') ?>"
+                                        class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 font-mono text-center font-bold shadow-inner text-sm break-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                     >
                                     <button 
+                                        type="button"
                                         onclick="copyLink(event.target)"
-                                        class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all flex items-center justify-center gap-2 animate-gradient"
+                                        aria-label="<?= Language::get('copy_link') ?>"
+                                        class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all flex items-center justify-center gap-2 animate-gradient focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                                     >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                         </svg>
                                         <?= Language::get('copy_link') ?>
@@ -717,10 +799,12 @@ try {
                                 </div>
 
                                 <button 
+                                    type="button"
                                     onclick="resetApp()"
-                                    class="w-full px-4 py-3 glass hover:bg-white/70 dark:hover:bg-zinc-800/70 text-gray-800 dark:text-gray-200 font-black rounded-xl hover:shadow-xl transition-all"
+                                    aria-label="<?= Language::get('create_new') ?>"
+                                    class="w-full px-4 py-3 glass hover:bg-white/70 dark:hover:bg-zinc-800/70 text-gray-800 dark:text-gray-200 font-black rounded-xl hover:shadow-xl transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 >
-                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                     </svg>
                                     <?= Language::get('create_new') ?>
@@ -731,50 +815,53 @@ try {
 
                 <?php elseif ($pageData['type'] === 'view'): ?>
                     <?php if ($pageData['text']['is_encrypted']): ?>
-                        <div id="passwordPrompt" class="space-y-6">
+                        <div id="passwordPrompt" class="space-y-6" role="region" aria-labelledby="encryptedTitle">
                             <div class="text-center space-y-3">
-                                <div class="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 dark:from-amber-600 dark:to-orange-700 rounded-full flex items-center justify-center mx-auto shadow-xl animate-gradient">
-                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div class="w-20 h-20 bg-gradient-to-br from-amber-500 to-orange-600 dark:from-amber-600 dark:to-orange-700 rounded-full flex items-center justify-center mx-auto shadow-xl animate-gradient" role="img" aria-label="<?= Language::get('encrypted_content') ?>">
+                                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                     </svg>
                                 </div>
-                                <h2 class="text-2xl font-black text-gray-800 dark:text-white"><?= Language::get('encrypted_content') ?></h2>
+                                <h2 id="encryptedTitle" class="text-2xl font-black text-gray-800 dark:text-white"><?= Language::get('encrypted_content') ?></h2>
                                 <p class="text-gray-600 dark:text-gray-400 font-semibold"><?= Language::get('enter_password') ?></p>
                             </div>
 
-                            <div class="space-y-4">
+                            <form class="space-y-4" onsubmit="event.preventDefault(); decryptContent();">
                                 <div class="password-input-container">
+                                    <label for="decryptPassword" class="sr-only"><?= Language::get('password') ?></label>
                                     <input 
                                         type="password" 
                                         id="decryptPassword" 
+                                        name="decryptPassword"
+                                        aria-label="<?= Language::get('password') ?>"
+                                        aria-describedby="decryptError"
                                         placeholder="<?= Language::get('password') ?>"
+                                        autocomplete="current-password"
                                         class="w-full px-4 py-3 glass rounded-xl text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all shadow-inner <?= Language::isRTL() ? 'pl-12' : 'pr-12' ?>"
                                         onkeypress="if(event.key === 'Enter') decryptContent()"
                                     >
-                                    <button type="button" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors" onclick="togglePasswordVisibility('decryptPassword', this)">
-                                        <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <button type="button" aria-label="<?= Language::get('toggle_password_visibility') ?: 'Toggle password visibility' ?>" aria-pressed="false" class="toggle-password text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded" onclick="togglePasswordVisibility('decryptPassword', this)">
+                                        <svg class="w-5 h-5 eye-open" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
-                                        <svg class="w-5 h-5 eye-closed hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5 eye-closed hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                                         </svg>
                                     </button>
                                 </div>
-                                <div id="decryptError" class="hidden p-3 glass-strong border-2 border-red-300 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm font-bold shadow-md"></div>
+                                <div id="decryptError" role="alert" aria-live="assertive" class="hidden p-3 glass-strong border-2 border-red-300 dark:border-red-800 rounded-xl text-red-700 dark:text-red-300 text-sm font-bold shadow-md"></div>
                                 <button 
-                                    onclick="decryptContent()"
-                                    class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all animate-gradient"
+                                    type="submit"
+                                    aria-label="<?= Language::get('decrypt_view') ?>"
+                                    class="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-xl hover:shadow-xl hover:from-emerald-600 hover:to-green-700 transition-all animate-gradient focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                                 >
-                                    <svg class="w-5 h-5 inline-block ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-                                    </svg>
-                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
                                     </svg>
                                     <?= Language::get('decrypt_view') ?>
                                 </button>
-                            </div>
+                            </form>
 
                             <div class="glass-strong border-2 border-amber-300/50 dark:border-amber-700/50 rounded-2xl p-4 flex items-start gap-3 text-amber-900 dark:text-amber-300 shadow-md">
                                 <svg class="w-6 h-6 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -808,11 +895,12 @@ try {
                                             <?= htmlspecialchars($pageData['text']['code']) ?>
                                         </a>
                                         <button 
+                                            type="button"
                                             onclick="showQRCode('<?= getBaseUrl() ?>/<?= $pageData['text']['code'] ?>')"
-                                            class="p-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-lg hover:shadow-lg transition-all"
-                                            title="<?= Language::get('show_qr') ?>"
+                                            aria-label="<?= Language::get('show_qr') ?>"
+                                            class="p-1.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-lg hover:shadow-lg transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                         >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                             </svg>
                                         </button>
@@ -856,27 +944,34 @@ try {
                                 </div>
                                 <textarea 
                                     id="viewContentTextarea"
+                                    name="viewContentTextarea"
                                     readonly 
-                                    class="w-full min-h-[400px] max-h-[600px] overflow-y-auto p-4 sm:p-6 glass rounded-2xl text-gray-800 dark:text-gray-200 font-mono focus:outline-none shadow-inner"
+                                    aria-label="<?= Language::get('content') ?>"
+                                    aria-describedby="viewCharCount"
+                                    class="w-full min-h-[400px] max-h-[600px] overflow-y-auto p-4 sm:p-6 glass rounded-2xl text-gray-800 dark:text-gray-200 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-inner"
                                     data-encrypted="<?= $pageData['text']['is_encrypted'] ? htmlspecialchars($pageData['text']['content']) : '' ?>"
+                                    dir="auto"
                                 ><?= $pageData['text']['is_encrypted'] ? '' : htmlspecialchars($pageData['text']['content']) ?></textarea>
                             </div>
 
                             <div class="flex flex-col sm:flex-row gap-3">
                                 <button 
+                                    type="button"
                                     onclick="copyContent(event.target)"
-                                    class="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-2xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center animate-gradient"
+                                    aria-label="<?= Language::get('copy_text') ?>"
+                                    class="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black rounded-2xl hover:shadow-2xl hover:from-emerald-600 hover:to-green-700 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center animate-gradient focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
                                 >
-                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                     </svg>
                                     <?= Language::get('copy_text') ?>
                                 </button>
                                 <a 
                                     href="<?= getBaseUrl() ?>" 
-                                    class="flex-1 px-6 py-4 glass hover:bg-white/70 dark:hover:bg-zinc-800/70 text-gray-800 dark:text-gray-200 font-black rounded-2xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 transition-all text-center flex items-center justify-center"
+                                    aria-label="<?= Language::get('create_new_text') ?>"
+                                    class="flex-1 px-6 py-4 glass hover:bg-white/70 dark:hover:bg-zinc-800/70 text-gray-800 dark:text-gray-200 font-black rounded-2xl hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 transition-all text-center flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 >
-                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 inline-block <?= Language::isRTL() ? 'mr-2' : 'ml-2' ?>" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                     </svg>
                                     <?= Language::get('create_new_text') ?>
@@ -916,6 +1011,7 @@ try {
         const BASE_URL = <?= json_encode(getBaseUrl()) ?>;
         const MAX_LENGTH = <?= MAX_CONTENT_LENGTH ?>;
         const CURRENT_LANG = '<?= Language::getCurrentLang() ?>';
+        const CSRF_TOKEN = <?= json_encode(Security::generateCSRFToken()) ?>;
         
         const i18n = {
             enter_text: <?= json_encode(Language::get('enter_text')) ?>,
@@ -943,13 +1039,42 @@ try {
 
         function toggleLanguageDropdown() {
             const dropdown = document.getElementById('languageDropdown');
+            const btn = document.getElementById('languageBtn');
+            const isHidden = dropdown?.classList.contains('hidden');
+            
             dropdown?.classList.toggle('hidden');
+            btn?.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+            
+            if (isHidden) {
+                const firstItem = dropdown?.querySelector('[role="menuitem"]');
+                firstItem?.focus();
+            }
         }
 
-        document.getElementById('languageBtn')?.addEventListener('click', toggleLanguageDropdown);
+        document.getElementById('languageBtn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleLanguageDropdown();
+        });
+        
         document.addEventListener('click', (e) => {
             if (!e.target.closest('#languageBtn') && !e.target.closest('#languageDropdown')) {
-                document.getElementById('languageDropdown')?.classList.add('hidden');
+                const dropdown = document.getElementById('languageDropdown');
+                const btn = document.getElementById('languageBtn');
+                dropdown?.classList.add('hidden');
+                btn?.setAttribute('aria-expanded', 'false');
+            }
+        });
+        
+        // Close dropdown on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const dropdown = document.getElementById('languageDropdown');
+                const btn = document.getElementById('languageBtn');
+                if (!dropdown?.classList.contains('hidden')) {
+                    dropdown.classList.add('hidden');
+                    btn?.setAttribute('aria-expanded', 'false');
+                    btn?.focus();
+                }
             }
         });
 
@@ -990,9 +1115,42 @@ try {
             }, 2000);
         }
 
+        // Focus trap for modals
+        function trapFocus(modal) {
+            const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            function handleTab(e) {
+                if (e.key !== 'Tab') return;
+                
+                if (e.shiftKey) {
+                    if (document.activeElement === firstElement) {
+                        e.preventDefault();
+                        lastElement.focus();
+                    }
+                } else {
+                    if (document.activeElement === lastElement) {
+                        e.preventDefault();
+                        firstElement.focus();
+                    }
+                }
+            }
+
+            modal.addEventListener('keydown', handleTab);
+            firstElement?.focus();
+            
+            return () => {
+                modal.removeEventListener('keydown', handleTab);
+            };
+        }
+
         function showQRCode(url) {
             const modal = document.getElementById('qrModal');
             const qrContainer = document.getElementById('qrModalCode');
+            const languageBtn = document.getElementById('languageBtn');
             
             qrContainer.innerHTML = '';
             
@@ -1007,6 +1165,11 @@ try {
             
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            languageBtn.setAttribute('aria-expanded', 'false');
+            document.getElementById('languageDropdown').classList.add('hidden');
+            
+            // Trap focus in modal
+            trapFocus(modal);
         }
 
         function closeQRModal(event) {
@@ -1016,6 +1179,10 @@ try {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             document.getElementById('qrModalCode').innerHTML = '';
+            
+            // Return focus to trigger button if exists
+            const triggerBtn = document.querySelector('[onclick*="showQRCode"]');
+            triggerBtn?.focus();
         }
 
         function updateTheme(isDark) {
@@ -1098,10 +1265,12 @@ try {
                 input.type = 'text';
                 eyeOpen.classList.add('hidden');
                 eyeClosed.classList.remove('hidden');
+                button.setAttribute('aria-pressed', 'true');
             } else {
                 input.type = 'password';
                 eyeOpen.classList.remove('hidden');
                 eyeClosed.classList.add('hidden');
+                button.setAttribute('aria-pressed', 'false');
             }
         }
 
@@ -1138,22 +1307,39 @@ try {
             try {
                 let finalContent = content;
                 let isEncrypted = false;
+                const singleUse = document.getElementById('singleUse')?.checked || false;
+                const expiryHours = document.getElementById('expiryHours')?.value ? parseInt(document.getElementById('expiryHours').value) : null;
+                const viewLimit = document.getElementById('viewLimit')?.value ? parseInt(document.getElementById('viewLimit').value) : null;
 
                 if (enablePass && password) {
                     finalContent = CryptoJS.AES.encrypt(content, password).toString();
                     isEncrypted = true;
                 }
 
+                const requestBody = {
+                    content: finalContent,
+                    is_encrypted: isEncrypted
+                };
+
+                // Handle single-use link (view_limit = 1)
+                if (singleUse) {
+                    requestBody.view_limit = 1;
+                } else if (viewLimit) {
+                    requestBody.view_limit = viewLimit;
+                }
+
+                if (expiryHours) {
+                    requestBody.expiry_hours = expiryHours;
+                }
+
                 const res = await fetch(BASE_URL + '/api-create', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-Token': CSRF_TOKEN
                     },
-                    body: JSON.stringify({ 
-                        content: finalContent,
-                        is_encrypted: isEncrypted
-                    }) 
+                    body: JSON.stringify(requestBody) 
                 });
                 
                 const data = await res.json();
@@ -1174,8 +1360,13 @@ try {
                         correctLevel : QRCode.CorrectLevel.H
                     });
 
-                    document.getElementById('resultOverlay').classList.remove('hidden');
-                    document.getElementById('resultOverlay').classList.add('flex');
+                    const overlay = document.getElementById('resultOverlay');
+                    overlay.classList.remove('hidden');
+                    overlay.classList.add('flex');
+                    
+                    // Trap focus in modal
+                    trapFocus(overlay);
+                    
                     document.getElementById('pasteContent').value = '';
                     document.getElementById('pasteContent').dispatchEvent(new Event('input'));
                     if (document.getElementById('enablePassword')) {
@@ -1209,15 +1400,17 @@ try {
         }
 
         function resetApp() {
-            document.getElementById('resultOverlay').classList.add('hidden');
-            document.getElementById('resultOverlay').classList.remove('flex');
+            const overlay = document.getElementById('resultOverlay');
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
             document.getElementById('qrcode').innerHTML = "";
             
             const homeTextarea = document.getElementById('pasteContent');
             if (homeTextarea) {
                 homeTextarea.value = '';
                 homeTextarea.dispatchEvent(new Event('input'));
-                homeTextarea.focus();
+                // Return focus to textarea
+                setTimeout(() => homeTextarea.focus(), 100);
             }
         }
 
@@ -1279,22 +1472,48 @@ try {
         }
 
         document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + Enter to submit
             if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && document.getElementById('pasteContent')) {
                 e.preventDefault();
                 document.getElementById('saveBtn')?.click();
             }
             
+            // Escape to close modals
             if (e.key === 'Escape') {
                 const overlay = document.getElementById('resultOverlay');
                 const modal = document.getElementById('qrModal');
                 
                 if (overlay && overlay.classList.contains('flex')) {
+                    e.preventDefault();
                     resetApp();
                 }
                 
                 if (modal && modal.classList.contains('flex')) {
+                    e.preventDefault();
                     closeQRModal();
                 }
+            }
+        });
+        
+        // Improve keyboard navigation for language dropdown
+        document.getElementById('languageDropdown')?.addEventListener('keydown', (e) => {
+            const items = Array.from(e.currentTarget.querySelectorAll('[role="menuitem"]'));
+            const currentIndex = items.indexOf(document.activeElement);
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const nextIndex = (currentIndex + 1) % items.length;
+                items[nextIndex]?.focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const prevIndex = (currentIndex - 1 + items.length) % items.length;
+                items[prevIndex]?.focus();
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                items[0]?.focus();
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                items[items.length - 1]?.focus();
             }
         });
 

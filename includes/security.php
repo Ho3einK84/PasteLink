@@ -119,7 +119,11 @@ class Security {
             return true;
         }
         
-        $token = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        // Check POST data, JSON body, or header
+        $token = $_POST['csrf_token'] ?? 
+                 ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '') ?: 
+                 (json_decode(file_get_contents('php://input'), true)['csrf_token'] ?? '');
+        
         return self::validateCSRFToken($token);
     }
     
